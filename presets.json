@@ -1,0 +1,44 @@
+{
+    "presets": [
+        {
+            "name": "List VMs",
+            "command": "vim-cmd vmsvc/getallvms",
+            "description": "List all virtual machines"
+        },
+        {
+            "name": "System Version",
+            "command": "vmware -v",
+            "description": "Show ESXi version"
+        },
+        {
+            "name": "CPU Info",
+            "command": "esxcli hardware cpu list",
+            "description": "Display CPU information"
+        },
+        {
+            "name": "Memory Info",
+            "command": "esxcli hardware memory get",
+            "description": "Display memory information"
+        },
+        {
+            "name": "Network Interfaces",
+            "command": "esxcli network nic list",
+            "description": "List network interfaces"
+        },
+        {
+            "name": "Storage Devices",
+            "command": "esxcli storage core device list",
+            "description": "List storage devices"
+        },
+        {
+            "name": "Running VMs",
+            "command": "esxcli vm process list",
+            "description": "List running virtual machines"
+        },
+        {
+            "name": "System Uptime",
+            "command": "uptime",
+            "description": "Show system uptime"
+        }
+    ]
+}

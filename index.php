@@ -33,7 +33,15 @@
                 <label for="command">Command:</label>
                 <div class="command-input-group">
                     <input type="text" id="command" name="command" pattern="^[a-zA-Z0-9\s._/-]+$" title="Command can only contain letters, numbers, spaces and basic symbols" required>
+                    <button type="button" class="preset-btn" id="togglePresets" title="Show Command Presets">📋</button>
                     <button type="button" class="history-btn" id="toggleHistory" title="Show Command History">▼</button>
+                </div>
+                <div id="commandPresets" class="command-presets">
+                    <div class="presets-header">
+                        <h4>Command Presets</h4>
+                        <input type="text" id="presetSearch" placeholder="Search presets..." class="preset-search">
+                    </div>
+                    <div id="presetsList" class="presets-list"></div>
                 </div>
                 <div id="commandHistory" class="command-history">
                     <div class="history-header">
@@ -59,16 +67,49 @@
         let commandHistory = JSON.parse(localStorage.getItem('commandHistory') || '[]');
         const maxHistoryItems = 10;
 
+        // Load Command Presets
+        let presets = [];
+        fetch('presets.json')
+            .then(response => response.json())
+            .then(data => {
+                presets = data.presets;
+                updatePresetsDisplay();
+            })
+            .catch(error => console.error('Error loading presets:', error));
+
+        function updatePresetsDisplay(searchTerm = '') {
+            const presetsList = document.getElementById('presetsList');
+            const filteredPresets = searchTerm 
+                ? presets.filter(preset => 
+                    preset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    preset.description.toLowerCase().includes(searchTerm.toLowerCase()))
+                : presets;
+
+            presetsList.innerHTML = filteredPresets.map(preset => `
+                <div class="preset-item" onclick="usePresetCommand('${preset.command}')">
+                    <div class="preset-name">${preset.name}</div>
+                    <div class="preset-description">${preset.description}</div>
+                    <div class="preset-command">${preset.command}</div>
+                </div>
+            `).join('');
+        }
+
+        // Preset Search
+        document.getElementById('presetSearch').addEventListener('input', function(e) {
+            updatePresetsDisplay(e.target.value);
+        });
+
+        function usePresetCommand(command) {
+            document.getElementById('command').value = command;
+            document.getElementById('commandPresets').classList.remove('show');
+        }
+
+        // Command History Functions
         function addToHistory(command) {
-            // Remove duplicate if exists
             commandHistory = commandHistory.filter(cmd => cmd !== command);
-            // Add new command to the beginning
             commandHistory.unshift(command);
-            // Keep only the last maxHistoryItems commands
             commandHistory = commandHistory.slice(0, maxHistoryItems);
-            // Save to localStorage
             localStorage.setItem('commandHistory', JSON.stringify(commandHistory));
-            // Update history display
             updateHistoryDisplay();
         }
 
@@ -87,9 +128,19 @@
         // Initialize history display
         updateHistoryDisplay();
 
-        // Toggle history visibility
-        document.getElementById('toggleHistory').addEventListener('click', function() {
-            document.getElementById('commandHistory').classList.toggle('show');
+        // Toggle visibility
+        document.getElementById('togglePresets').addEventListener('click', function(e) {
+            const presets = document.getElementById('commandPresets');
+            const history = document.getElementById('commandHistory');
+            history.classList.remove('show');
+            presets.classList.toggle('show');
+        });
+
+        document.getElementById('toggleHistory').addEventListener('click', function(e) {
+            const presets = document.getElementById('commandPresets');
+            const history = document.getElementById('commandHistory');
+            presets.classList.remove('show');
+            history.classList.toggle('show');
         });
 
         // Clear history
@@ -100,7 +151,7 @@
         });
 
         function sanitizeInput(input) {
-            return input.replace(/[<>]/g, ''); // Basic XSS prevention
+            return input.replace(/[<>]/g, '');
         }
 
         function validateHost(host) {
@@ -118,9 +169,9 @@
             return commandRegex.test(command);
         }
 
+        // Form submission
         document.getElementById('sshForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-
             document.querySelectorAll('.error-message').forEach(el => el.textContent = '');
 
             const host = sanitizeInput(document.getElementById('host').value.trim());
@@ -150,11 +201,8 @@
                 hasError = true;
             }
 
-            if (hasError) {
-                return;
-            }
+            if (hasError) return;
 
-            // Add command to history before execution
             addToHistory(command);
 
             const formData = { host, username, password, command };
@@ -196,12 +244,18 @@
             }
         });
 
-        // Close command history when clicking outside
+        // Close dropdowns when clicking outside
         document.addEventListener('click', function(e) {
-            const commandHistory = document.getElementById('commandHistory');
+            const presets = document.getElementById('commandPresets');
+            const history = document.getElementById('commandHistory');
+            const togglePresets = document.getElementById('togglePresets');
             const toggleHistory = document.getElementById('toggleHistory');
-            if (!commandHistory.contains(e.target) && e.target !== toggleHistory) {
-                commandHistory.classList.remove('show');
+
+            if (!presets.contains(e.target) && e.target !== togglePresets) {
+                presets.classList.remove('show');
+            }
+            if (!history.contains(e.target) && e.target !== toggleHistory) {
+                history.classList.remove('show');
             }
         });
     </script>

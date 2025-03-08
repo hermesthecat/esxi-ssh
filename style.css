@@ -68,7 +68,7 @@ body {
     flex: 1;
 }
 
-.history-btn {
+.history-btn, .preset-btn {
     background: #3498db;
     color: white;
     border: none;
@@ -79,7 +79,7 @@ body {
     transition: background-color 0.3s;
 }
 
-.history-btn:hover {
+.history-btn:hover, .preset-btn:hover {
     background-color: #2980b9;
 }
 
@@ -102,6 +102,74 @@ body {
 
 .command-history.show {
     display: block;
+}
+
+/* Command Presets */
+.command-presets {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    margin-top: 4px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.command-presets.show {
+    display: block;
+}
+
+.presets-header {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    background: #f8f9fa;
+}
+
+.preset-search {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-size: 14px;
+}
+
+.preset-item {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.preset-item:hover {
+    background-color: #f8f9fa;
+}
+
+.preset-name {
+    font-weight: 500;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.preset-description {
+    font-size: 12px;
+    color: #7f8c8d;
+    margin-bottom: 4px;
+}
+
+.preset-command {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    color: #3498db;
+    background: #f8f9fa;
+    padding: 4px 8px;
+    border-radius: 2px;
 }
 
 .history-header {
@@ -239,12 +307,16 @@ body {
         font-size: 14px;
     }
     
-    .history-btn {
+    .history-btn, .preset-btn {
         padding: 0 15px;
         font-size: 16px;
     }
     
-    .command-history {
+    .command-history, .command-presets {
         max-height: 250px;
+    }
+    
+    .preset-item {
+        padding: 15px;
     }
 }
