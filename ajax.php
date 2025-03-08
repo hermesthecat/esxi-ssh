@@ -10,7 +10,7 @@ class SSHConnection
     private $username;
     private $password;
     private $sessionId;
-    private $timeout = 30; // Default timeout in seconds
+    private $timeout = 30;
     private $lastActivity;
 
     public function __construct($host, $username, $password, $timeout = 30)
@@ -29,7 +29,6 @@ class SSHConnection
             return ['success' => false, 'message' => 'SSH2 extension is not installed'];
         }
 
-        // Set connection timeout using socket context
         $ctx = stream_context_create(['socket' => ['timeout' => $this->timeout]]);
         $this->connection = @ssh2_connect($this->host, 22, [], $ctx);
 
@@ -37,18 +36,15 @@ class SSHConnection
             return ['success' => false, 'message' => 'Failed to connect to ' . $this->host . ' (timeout: ' . $this->timeout . 's)'];
         }
 
-        // Set stream timeout for authentication
         stream_set_timeout($this->connection, $this->timeout);
 
         if (!@ssh2_auth_password($this->connection, $this->username, $this->password)) {
             return ['success' => false, 'message' => 'Authentication failed or timed out'];
         }
 
-        // Generate unique session ID
         $this->sessionId = md5(uniqid($this->host . $this->username, true));
         $this->lastActivity = time();
 
-        // Store connection info in session
         $_SESSION['ssh_connections'][$this->sessionId] = [
             'host' => $this->host,
             'username' => $this->username,
@@ -70,22 +66,18 @@ class SSHConnection
             return ['success' => false, 'message' => 'Not connected'];
         }
 
-        // Check if connection has timed out
         if ($this->hasTimedOut()) {
             $this->disconnect();
             return ['success' => false, 'message' => 'Connection timed out due to inactivity'];
         }
 
-        // Validate command
         $validation = CommandValidator::validate($command);
         if (!$validation['valid']) {
             return ['success' => false, 'message' => $validation['message']];
         }
 
-        // Update last activity timestamp
         $this->updateLastActivity();
 
-        // Set stream timeout for command execution
         $stream = @ssh2_exec($this->connection, $command);
         if (!$stream) {
             return ['success' => false, 'message' => 'Failed to execute command or connection timed out'];
@@ -96,7 +88,6 @@ class SSHConnection
 
         $output = '';
         try {
-            // Read with timeout handling
             while ($buffer = @fgets($stream)) {
                 if ($buffer === false) {
                     if ($this->hasStreamTimedOut($stream)) {
@@ -113,6 +104,31 @@ class SSHConnection
         @fclose($stream);
 
         return ['success' => true, 'output' => $output];
+    }
+
+    public function disconnect()
+    {
+        if ($this->connection) {
+            // Close all channels
+            $channels = @ssh2_exec($this->connection, 'exit');
+            if ($channels) {
+                @fclose($channels);
+            }
+
+            // Remove from session
+            if ($this->sessionId && isset($_SESSION['ssh_connections'][$this->sessionId])) {
+                unset($_SESSION['ssh_connections'][$this->sessionId]);
+            }
+
+            // Reset connection properties
+            $this->connection = null;
+            $this->sessionId = null;
+            $this->lastActivity = null;
+
+            return ['success' => true, 'message' => 'Disconnected successfully'];
+        }
+
+        return ['success' => false, 'message' => 'Not connected'];
     }
 
     private function hasTimedOut()
@@ -132,16 +148,6 @@ class SSHConnection
         if ($this->sessionId && isset($_SESSION['ssh_connections'][$this->sessionId])) {
             $_SESSION['ssh_connections'][$this->sessionId]['last_used'] = time();
         }
-    }
-
-    public function disconnect()
-    {
-        if ($this->sessionId && isset($_SESSION['ssh_connections'][$this->sessionId])) {
-            unset($_SESSION['ssh_connections'][$this->sessionId]);
-        }
-        $this->connection = null;
-        $this->sessionId = null;
-        return ['success' => true, 'message' => 'Disconnected successfully'];
     }
 
     public static function cleanOldSessions($maxAge = 3600)
@@ -167,23 +173,40 @@ SSHConnection::cleanOldSessions();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents('php://input'), true);
     
+    // Handle disconnect request
+    if (isset($data['action']) && $data['action'] === 'disconnect') {
+        if (!isset($data['session_id'])) {
+            echo json_encode(['success' => false, 'message' => 'Missing session ID']);
+            exit;
+        }
+
+        if (!isset($_SESSION['ssh_connections'][$data['session_id']])) {
+            echo json_encode(['success' => false, 'message' => 'Invalid session']);
+            exit;
+        }
+
+        $sessionInfo = $_SESSION['ssh_connections'][$data['session_id']];
+        $ssh = new SSHConnection($sessionInfo['host'], $sessionInfo['username'], '');
+        $result = $ssh->disconnect();
+        echo json_encode($result);
+        exit;
+    }
+
+    // Handle command execution
     if (!isset($data['command'])) {
         echo json_encode(['success' => false, 'message' => 'Missing command parameter']);
         exit;
     }
 
-    // Validate command before proceeding
     $validation = CommandValidator::validate($data['command']);
     if (!$validation['valid']) {
         echo json_encode(['success' => false, 'message' => $validation['message']]);
         exit;
     }
 
-    // Set timeout from request or use default
     $timeout = isset($data['timeout']) ? intval($data['timeout']) : 30;
-    $timeout = max(10, min($timeout, 300)); // Limit timeout between 10 and 300 seconds
+    $timeout = max(10, min($timeout, 300));
 
-    // Check if we have an existing session
     if (isset($data['session_id']) && isset($_SESSION['ssh_connections'][$data['session_id']])) {
         $sessionInfo = $_SESSION['ssh_connections'][$data['session_id']];
         $ssh = new SSHConnection($sessionInfo['host'], $sessionInfo['username'], '', $timeout);
@@ -194,7 +217,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
     } else {
-        // New connection
         if (!isset($data['host']) || !isset($data['username']) || !isset($data['password'])) {
             echo json_encode(['success' => false, 'message' => 'Missing connection parameters']);
             exit;

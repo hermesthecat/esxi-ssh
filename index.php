@@ -12,8 +12,16 @@
             <h2>ESXi SSH Connection</h2>
             
             <div class="connection-status" id="connectionStatus">
-                <span class="status-text">Not Connected</span>
-                <button type="button" id="disconnectBtn" class="disconnect-btn" style="display: none;">Disconnect</button>
+                <div class="status-info">
+                    <span class="status-text">Not Connected</span>
+                    <span class="host-info" id="hostInfo"></span>
+                </div>
+                <div class="status-actions">
+                    <button type="button" id="disconnectBtn" class="disconnect-btn" style="display: none;">
+                        <span class="disconnect-icon">⏻</span>
+                        Disconnect
+                    </button>
+                </div>
             </div>
 
             <div id="connectionFields">
@@ -75,17 +83,30 @@
         </div>
     </div>
 
+    <div id="disconnectModal" class="modal">
+        <div class="modal-content">
+            <h3>Confirm Disconnect</h3>
+            <p>Are you sure you want to disconnect from the server?</p>
+            <div class="modal-actions">
+                <button id="confirmDisconnect" class="confirm-btn">Disconnect</button>
+                <button id="cancelDisconnect" class="cancel-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Session and timeout management
+        // Session and Connection Management
         let currentSession = null;
         let isConnected = false;
         let commandTimeout = null;
+        let disconnectInProgress = false;
 
-        function updateConnectionStatus(connected, sessionId = null) {
+        function updateConnectionStatus(connected, sessionId = null, hostInfo = '') {
             isConnected = connected;
             currentSession = sessionId;
             
             const statusText = document.querySelector('.status-text');
+            const hostInfoEl = document.getElementById('hostInfo');
             const disconnectBtn = document.getElementById('disconnectBtn');
             const connectionFields = document.getElementById('connectionFields');
             const submitBtn = document.querySelector('.submit-btn');
@@ -93,12 +114,14 @@
             if (connected) {
                 statusText.textContent = 'Connected';
                 statusText.classList.add('connected');
-                disconnectBtn.style.display = 'inline-block';
+                hostInfoEl.textContent = hostInfo;
+                disconnectBtn.style.display = 'inline-flex';
                 connectionFields.style.display = 'none';
                 submitBtn.textContent = 'Execute Command';
             } else {
                 statusText.textContent = 'Not Connected';
                 statusText.classList.remove('connected');
+                hostInfoEl.textContent = '';
                 disconnectBtn.style.display = 'none';
                 connectionFields.style.display = 'block';
                 submitBtn.textContent = 'Connect & Execute';
@@ -106,11 +129,74 @@
             }
         }
 
+        async function disconnectFromServer() {
+            if (!currentSession || disconnectInProgress) return;
+
+            disconnectInProgress = true;
+            const logContent = document.getElementById('logContent');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            disconnectBtn.disabled = true;
+
+            try {
+                const response = await fetch('ajax.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'disconnect',
+                        session_id: currentSession
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateConnectionStatus(false);
+                    logContent.textContent = 'Disconnected from server.';
+                    logContent.classList.remove('error');
+                    hideDisconnectModal();
+                } else {
+                    logContent.textContent = 'Error: ' + result.message;
+                    logContent.classList.add('error');
+                }
+            } catch (error) {
+                logContent.textContent = 'Error: Failed to disconnect - ' + error.message;
+                logContent.classList.add('error');
+            } finally {
+                disconnectBtn.disabled = false;
+                disconnectInProgress = false;
+            }
+        }
+
         // Command History Management
         let commandHistory = JSON.parse(localStorage.getItem('commandHistory') || '[]');
         const maxHistoryItems = 10;
 
-        // Load Command Presets
+        function addToHistory(command) {
+            commandHistory = commandHistory.filter(cmd => cmd !== command);
+            commandHistory.unshift(command);
+            commandHistory = commandHistory.slice(0, maxHistoryItems);
+            localStorage.setItem('commandHistory', JSON.stringify(commandHistory));
+            updateHistoryDisplay();
+        }
+
+        function updateHistoryDisplay() {
+            const historyList = document.getElementById('historyList');
+            historyList.innerHTML = commandHistory.map(cmd => 
+                `<li><button type="button" class="history-item" onclick="useHistoryCommand('${cmd.replace(/'/g, "\\'")}')">${cmd}</button></li>`
+            ).join('');
+        }
+
+        function useHistoryCommand(command) {
+            document.getElementById('command').value = command;
+            document.getElementById('commandHistory').classList.remove('show');
+        }
+
+        // Initialize history display
+        updateHistoryDisplay();
+
+        // Command Presets
         let presets = [];
         fetch('presets.json')
             .then(response => response.json())
@@ -137,39 +223,27 @@
             `).join('');
         }
 
-        document.getElementById('presetSearch').addEventListener('input', function(e) {
-            updatePresetsDisplay(e.target.value);
-        });
-
         function usePresetCommand(command) {
             document.getElementById('command').value = command;
             document.getElementById('commandPresets').classList.remove('show');
         }
 
-        function addToHistory(command) {
-            commandHistory = commandHistory.filter(cmd => cmd !== command);
-            commandHistory.unshift(command);
-            commandHistory = commandHistory.slice(0, maxHistoryItems);
-            localStorage.setItem('commandHistory', JSON.stringify(commandHistory));
-            updateHistoryDisplay();
+        // Modal Management
+        const modal = document.getElementById('disconnectModal');
+        
+        function showDisconnectModal() {
+            modal.classList.add('show');
+        }
+        
+        function hideDisconnectModal() {
+            modal.classList.remove('show');
         }
 
-        function updateHistoryDisplay() {
-            const historyList = document.getElementById('historyList');
-            historyList.innerHTML = commandHistory.map(cmd => 
-                `<li><button type="button" class="history-item" onclick="useHistoryCommand('${cmd.replace(/'/g, "\\'")}')">${cmd}</button></li>`
-            ).join('');
-        }
+        // Event Listeners
+        document.getElementById('presetSearch').addEventListener('input', function(e) {
+            updatePresetsDisplay(e.target.value);
+        });
 
-        function useHistoryCommand(command) {
-            document.getElementById('command').value = command;
-            document.getElementById('commandHistory').classList.remove('show');
-        }
-
-        // Initialize history display
-        updateHistoryDisplay();
-
-        // Toggle visibility
         document.getElementById('togglePresets').addEventListener('click', function(e) {
             const presets = document.getElementById('commandPresets');
             const history = document.getElementById('commandHistory');
@@ -184,46 +258,17 @@
             history.classList.toggle('show');
         });
 
-        // Clear history
         document.getElementById('clearHistory').addEventListener('click', function() {
             commandHistory = [];
             localStorage.removeItem('commandHistory');
             updateHistoryDisplay();
         });
 
-        // Timeout handling for command input
-        document.getElementById('command').addEventListener('input', function() {
-            clearTimeout(commandTimeout);
-        });
+        document.getElementById('disconnectBtn').addEventListener('click', showDisconnectModal);
+        document.getElementById('confirmDisconnect').addEventListener('click', disconnectFromServer);
+        document.getElementById('cancelDisconnect').addEventListener('click', hideDisconnectModal);
 
-        // Disconnect button handler
-        document.getElementById('disconnectBtn').addEventListener('click', function() {
-            updateConnectionStatus(false);
-            currentSession = null;
-            document.getElementById('logContent').textContent = 'Disconnected from server.';
-            clearTimeout(commandTimeout);
-        });
-
-        function sanitizeInput(input) {
-            return input.replace(/[<>]/g, '');
-        }
-
-        function validateHost(host) {
-            const hostRegex = /^[a-zA-Z0-9.-]+$/;
-            return hostRegex.test(host);
-        }
-
-        function validateUsername(username) {
-            const usernameRegex = /^[a-zA-Z0-9_-]+$/;
-            return usernameRegex.test(username);
-        }
-
-        function validateCommand(command) {
-            const commandRegex = /^[a-zA-Z0-9\s._/-]+$/;
-            return commandRegex.test(command);
-        }
-
-        // Form submission with timeout handling
+        // Form submission
         document.getElementById('sshForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             clearTimeout(commandTimeout);
@@ -281,14 +326,12 @@
                 submitBtn.textContent = isConnected ? 'Executing...' : 'Connecting...';
                 logContent.textContent = isConnected ? 'Executing command...' : 'Connecting to host...';
 
-                // Set up timeout
                 const timeoutPromise = new Promise((_, reject) => {
                     commandTimeout = setTimeout(() => {
                         reject(new Error(`Operation timed out after ${timeout} seconds`));
                     }, timeout * 1000);
                 });
 
-                // Race between fetch and timeout
                 const response = await Promise.race([
                     fetch('ajax.php', {
                         method: 'POST',
@@ -305,7 +348,7 @@
 
                 if (result.success) {
                     if (!isConnected && result.session_id) {
-                        updateConnectionStatus(true, result.session_id);
+                        updateConnectionStatus(true, result.session_id, `${requestData.host} (${requestData.username})`);
                     }
                     
                     if (result.output) {
@@ -332,6 +375,26 @@
             }
         });
 
+        // Input validation functions
+        function sanitizeInput(input) {
+            return input.replace(/[<>]/g, '');
+        }
+
+        function validateHost(host) {
+            const hostRegex = /^[a-zA-Z0-9.-]+$/;
+            return hostRegex.test(host);
+        }
+
+        function validateUsername(username) {
+            const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+            return usernameRegex.test(username);
+        }
+
+        function validateCommand(command) {
+            const commandRegex = /^[a-zA-Z0-9\s._/-]+$/;
+            return commandRegex.test(command);
+        }
+
         // Close dropdowns when clicking outside
         document.addEventListener('click', function(e) {
             const presets = document.getElementById('commandPresets');
@@ -344,6 +407,16 @@
             }
             if (!history.contains(e.target) && e.target !== toggleHistory) {
                 history.classList.remove('show');
+            }
+            if (e.target === modal) {
+                hideDisconnectModal();
+            }
+        });
+
+        // Handle page unload
+        window.addEventListener('beforeunload', function(e) {
+            if (isConnected) {
+                disconnectFromServer();
             }
         });
     </script>
