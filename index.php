@@ -29,9 +29,19 @@
                 <span class="error-message" id="passwordError"></span>
             </div>
 
-            <div class="form-group">
+            <div class="form-group command-group">
                 <label for="command">Command:</label>
-                <input type="text" id="command" name="command" pattern="^[a-zA-Z0-9\s._/-]+$" title="Command can only contain letters, numbers, spaces and basic symbols" required>
+                <div class="command-input-group">
+                    <input type="text" id="command" name="command" pattern="^[a-zA-Z0-9\s._/-]+$" title="Command can only contain letters, numbers, spaces and basic symbols" required>
+                    <button type="button" class="history-btn" id="toggleHistory" title="Show Command History">▼</button>
+                </div>
+                <div id="commandHistory" class="command-history">
+                    <div class="history-header">
+                        <h4>Command History</h4>
+                        <button type="button" class="clear-history-btn" id="clearHistory">Clear History</button>
+                    </div>
+                    <ul id="historyList"></ul>
+                </div>
                 <span class="error-message" id="commandError"></span>
             </div>
 
@@ -45,24 +55,65 @@
     </div>
 
     <script>
+        // Command History Management
+        let commandHistory = JSON.parse(localStorage.getItem('commandHistory') || '[]');
+        const maxHistoryItems = 10;
+
+        function addToHistory(command) {
+            // Remove duplicate if exists
+            commandHistory = commandHistory.filter(cmd => cmd !== command);
+            // Add new command to the beginning
+            commandHistory.unshift(command);
+            // Keep only the last maxHistoryItems commands
+            commandHistory = commandHistory.slice(0, maxHistoryItems);
+            // Save to localStorage
+            localStorage.setItem('commandHistory', JSON.stringify(commandHistory));
+            // Update history display
+            updateHistoryDisplay();
+        }
+
+        function updateHistoryDisplay() {
+            const historyList = document.getElementById('historyList');
+            historyList.innerHTML = commandHistory.map(cmd => 
+                `<li><button type="button" class="history-item" onclick="useHistoryCommand('${cmd.replace(/'/g, "\\'")}')">${cmd}</button></li>`
+            ).join('');
+        }
+
+        function useHistoryCommand(command) {
+            document.getElementById('command').value = command;
+            document.getElementById('commandHistory').classList.remove('show');
+        }
+
+        // Initialize history display
+        updateHistoryDisplay();
+
+        // Toggle history visibility
+        document.getElementById('toggleHistory').addEventListener('click', function() {
+            document.getElementById('commandHistory').classList.toggle('show');
+        });
+
+        // Clear history
+        document.getElementById('clearHistory').addEventListener('click', function() {
+            commandHistory = [];
+            localStorage.removeItem('commandHistory');
+            updateHistoryDisplay();
+        });
+
         function sanitizeInput(input) {
             return input.replace(/[<>]/g, ''); // Basic XSS prevention
         }
 
         function validateHost(host) {
-            // Allow hostnames and IP addresses
             const hostRegex = /^[a-zA-Z0-9.-]+$/;
             return hostRegex.test(host);
         }
 
         function validateUsername(username) {
-            // Allow letters, numbers, underscores and hyphens
             const usernameRegex = /^[a-zA-Z0-9_-]+$/;
             return usernameRegex.test(username);
         }
 
         function validateCommand(command) {
-            // Allow letters, numbers, spaces and basic symbols
             const commandRegex = /^[a-zA-Z0-9\s._/-]+$/;
             return commandRegex.test(command);
         }
@@ -70,16 +121,13 @@
         document.getElementById('sshForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            // Clear previous error messages
             document.querySelectorAll('.error-message').forEach(el => el.textContent = '');
 
-            // Get and sanitize form inputs
             const host = sanitizeInput(document.getElementById('host').value.trim());
             const username = sanitizeInput(document.getElementById('username').value.trim());
-            const password = document.getElementById('password').value; // Don't trim password
+            const password = document.getElementById('password').value;
             const command = sanitizeInput(document.getElementById('command').value.trim());
 
-            // Validate inputs
             let hasError = false;
 
             if (!validateHost(host)) {
@@ -105,6 +153,9 @@
             if (hasError) {
                 return;
             }
+
+            // Add command to history before execution
+            addToHistory(command);
 
             const formData = { host, username, password, command };
             const logContent = document.getElementById('logContent');
@@ -142,6 +193,15 @@
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Connect & Execute';
+            }
+        });
+
+        // Close command history when clicking outside
+        document.addEventListener('click', function(e) {
+            const commandHistory = document.getElementById('commandHistory');
+            const toggleHistory = document.getElementById('toggleHistory');
+            if (!commandHistory.contains(e.target) && e.target !== toggleHistory) {
+                commandHistory.classList.remove('show');
             }
         });
     </script>
