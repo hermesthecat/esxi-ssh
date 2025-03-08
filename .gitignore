@@ -1,0 +1,6 @@
+uploads/*.pdf
+temp/*.pdf
+.clinerules-*
+.roomodes
+logs/*.log
+memory-bank/
