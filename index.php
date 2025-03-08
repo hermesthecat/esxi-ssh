@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESXi SSH Connection</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="container">
         <form id="sshForm" class="ssh-form">
             <h2>ESXi SSH Connection</h2>
-            
+
             <div class="form-group">
                 <label for="host">Host:</label>
                 <input type="text" id="host" name="host" required>
@@ -43,7 +45,7 @@
     <script>
         document.getElementById('sshForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const formData = {
                 host: document.getElementById('host').value,
                 username: document.getElementById('username').value,
@@ -53,7 +55,7 @@
 
             const logContent = document.getElementById('logContent');
             const submitBtn = document.querySelector('.submit-btn');
-            
+
             try {
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Connecting...';
@@ -68,7 +70,7 @@
                 });
 
                 const result = await response.json();
-                
+
                 if (result.success) {
                     if (result.output) {
                         logContent.textContent = result.output;
@@ -90,4 +92,5 @@
         });
     </script>
 </body>
+
 </html>

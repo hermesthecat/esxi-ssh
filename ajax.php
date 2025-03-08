@@ -1,19 +1,22 @@
 <?php
 header('Content-Type: application/json');
 
-class SSHConnection {
+class SSHConnection
+{
     private $connection;
     private $host;
     private $username;
     private $password;
 
-    public function __construct($host, $username, $password) {
+    public function __construct($host, $username, $password)
+    {
         $this->host = $host;
         $this->username = $username;
         $this->password = $password;
     }
 
-    public function connect() {
+    public function connect()
+    {
         if (!function_exists('ssh2_connect')) {
             return ['success' => false, 'message' => 'SSH2 extension is not installed'];
         }
@@ -30,7 +33,8 @@ class SSHConnection {
         return ['success' => true, 'message' => 'Connected successfully'];
     }
 
-    public function executeCommand($command) {
+    public function executeCommand($command)
+    {
         if (!$this->connection) {
             return ['success' => false, 'message' => 'Not connected'];
         }
@@ -51,7 +55,7 @@ class SSHConnection {
 // Handle AJAX request
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents('php://input'), true);
-    
+
     if (!isset($data['host']) || !isset($data['username']) || !isset($data['password']) || !isset($data['command'])) {
         echo json_encode(['success' => false, 'message' => 'Missing required parameters']);
         exit;
@@ -59,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $ssh = new SSHConnection($data['host'], $data['username'], $data['password']);
     $connection = $ssh->connect();
-    
+
     if (!$connection['success']) {
         echo json_encode($connection);
         exit;
