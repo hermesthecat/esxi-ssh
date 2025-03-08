@@ -11,22 +11,29 @@
         <form id="sshForm" class="ssh-form">
             <h2>ESXi SSH Connection</h2>
             
-            <div class="form-group">
-                <label for="host">Host:</label>
-                <input type="text" id="host" name="host" pattern="^[a-zA-Z0-9.-]+$" title="Enter a valid hostname or IP address" required>
-                <span class="error-message" id="hostError"></span>
+            <div class="connection-status" id="connectionStatus">
+                <span class="status-text">Not Connected</span>
+                <button type="button" id="disconnectBtn" class="disconnect-btn" style="display: none;">Disconnect</button>
             </div>
 
-            <div class="form-group">
-                <label for="username">Username:</label>
-                <input type="text" id="username" name="username" pattern="^[a-zA-Z0-9_-]+$" title="Username can only contain letters, numbers, underscores and hyphens" required>
-                <span class="error-message" id="usernameError"></span>
-            </div>
+            <div id="connectionFields">
+                <div class="form-group">
+                    <label for="host">Host:</label>
+                    <input type="text" id="host" name="host" pattern="^[a-zA-Z0-9.-]+$" title="Enter a valid hostname or IP address" required>
+                    <span class="error-message" id="hostError"></span>
+                </div>
 
-            <div class="form-group">
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" minlength="1" required>
-                <span class="error-message" id="passwordError"></span>
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" pattern="^[a-zA-Z0-9_-]+$" title="Username can only contain letters, numbers, underscores and hyphens" required>
+                    <span class="error-message" id="usernameError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" minlength="1" required>
+                    <span class="error-message" id="passwordError"></span>
+                </div>
             </div>
 
             <div class="form-group command-group">
@@ -63,6 +70,34 @@
     </div>
 
     <script>
+        // Session Management
+        let currentSession = null;
+        let isConnected = false;
+
+        function updateConnectionStatus(connected, sessionId = null) {
+            isConnected = connected;
+            currentSession = sessionId;
+            
+            const statusText = document.querySelector('.status-text');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const connectionFields = document.getElementById('connectionFields');
+            const submitBtn = document.querySelector('.submit-btn');
+
+            if (connected) {
+                statusText.textContent = 'Connected';
+                statusText.classList.add('connected');
+                disconnectBtn.style.display = 'inline-block';
+                connectionFields.style.display = 'none';
+                submitBtn.textContent = 'Execute Command';
+            } else {
+                statusText.textContent = 'Not Connected';
+                statusText.classList.remove('connected');
+                disconnectBtn.style.display = 'none';
+                connectionFields.style.display = 'block';
+                submitBtn.textContent = 'Connect & Execute';
+            }
+        }
+
         // Command History Management
         let commandHistory = JSON.parse(localStorage.getItem('commandHistory') || '[]');
         const maxHistoryItems = 10;
@@ -94,7 +129,6 @@
             `).join('');
         }
 
-        // Preset Search
         document.getElementById('presetSearch').addEventListener('input', function(e) {
             updatePresetsDisplay(e.target.value);
         });
@@ -104,7 +138,6 @@
             document.getElementById('commandPresets').classList.remove('show');
         }
 
-        // Command History Functions
         function addToHistory(command) {
             commandHistory = commandHistory.filter(cmd => cmd !== command);
             commandHistory.unshift(command);
@@ -150,6 +183,13 @@
             updateHistoryDisplay();
         });
 
+        // Disconnect button handler
+        document.getElementById('disconnectBtn').addEventListener('click', function() {
+            updateConnectionStatus(false);
+            currentSession = null;
+            document.getElementById('logContent').textContent = 'Disconnected from server.';
+        });
+
         function sanitizeInput(input) {
             return input.replace(/[<>]/g, '');
         }
@@ -174,57 +214,70 @@
             e.preventDefault();
             document.querySelectorAll('.error-message').forEach(el => el.textContent = '');
 
-            const host = sanitizeInput(document.getElementById('host').value.trim());
-            const username = sanitizeInput(document.getElementById('username').value.trim());
-            const password = document.getElementById('password').value;
             const command = sanitizeInput(document.getElementById('command').value.trim());
-
-            let hasError = false;
-
-            if (!validateHost(host)) {
-                document.getElementById('hostError').textContent = 'Invalid host format';
-                hasError = true;
-            }
-
-            if (!validateUsername(username)) {
-                document.getElementById('usernameError').textContent = 'Invalid username format';
-                hasError = true;
-            }
-
-            if (!password) {
-                document.getElementById('passwordError').textContent = 'Password is required';
-                hasError = true;
-            }
-
+            
             if (!validateCommand(command)) {
                 document.getElementById('commandError').textContent = 'Invalid command format';
-                hasError = true;
+                return;
             }
 
-            if (hasError) return;
+            let requestData = { command };
+
+            // Add connection details if not already connected
+            if (!isConnected) {
+                const host = sanitizeInput(document.getElementById('host').value.trim());
+                const username = sanitizeInput(document.getElementById('username').value.trim());
+                const password = document.getElementById('password').value;
+
+                let hasError = false;
+
+                if (!validateHost(host)) {
+                    document.getElementById('hostError').textContent = 'Invalid host format';
+                    hasError = true;
+                }
+
+                if (!validateUsername(username)) {
+                    document.getElementById('usernameError').textContent = 'Invalid username format';
+                    hasError = true;
+                }
+
+                if (!password) {
+                    document.getElementById('passwordError').textContent = 'Password is required';
+                    hasError = true;
+                }
+
+                if (hasError) return;
+
+                requestData = { ...requestData, host, username, password };
+            } else {
+                requestData.session_id = currentSession;
+            }
 
             addToHistory(command);
 
-            const formData = { host, username, password, command };
             const logContent = document.getElementById('logContent');
             const submitBtn = document.querySelector('.submit-btn');
 
             try {
                 submitBtn.disabled = true;
-                submitBtn.textContent = 'Connecting...';
-                logContent.textContent = 'Connecting to host...';
+                submitBtn.textContent = isConnected ? 'Executing...' : 'Connecting...';
+                logContent.textContent = isConnected ? 'Executing command...' : 'Connecting to host...';
 
                 const response = await fetch('ajax.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify(requestData)
                 });
 
                 const result = await response.json();
 
                 if (result.success) {
+                    if (!isConnected && result.session_id) {
+                        updateConnectionStatus(true, result.session_id);
+                    }
+                    
                     if (result.output) {
                         logContent.textContent = result.output;
                     } else {
@@ -234,13 +287,17 @@
                 } else {
                     logContent.textContent = 'Error: ' + result.message;
                     logContent.classList.add('error');
+                    if (!isConnected) {
+                        updateConnectionStatus(false);
+                    }
                 }
             } catch (error) {
                 logContent.textContent = 'Error: ' + error.message;
                 logContent.classList.add('error');
+                updateConnectionStatus(false);
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Connect & Execute';
+                submitBtn.textContent = isConnected ? 'Execute Command' : 'Connect & Execute';
             }
         });
 

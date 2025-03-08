@@ -31,6 +31,42 @@ body {
     text-align: center;
 }
 
+/* Connection Status */
+.connection-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.status-text {
+    font-weight: 500;
+    color: #e74c3c;
+}
+
+.status-text.connected {
+    color: #27ae60;
+}
+
+.disconnect-btn {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.disconnect-btn:hover {
+    background-color: #c0392b;
+}
+
 .form-group {
     margin-bottom: 15px;
     position: relative;
@@ -294,6 +330,36 @@ body {
     color: #fff;
 }
 
+/* Slide animations */
+@keyframes slideDown {
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.command-history.show,
+.command-presets.show {
+    animation: slideDown 0.2s ease-out;
+}
+
+/* Transition for connection fields */
+#connectionFields {
+    transition: all 0.3s ease-in-out;
+}
+
+#connectionFields.hidden {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    margin: 0;
+    padding: 0;
+}
+
 @media (max-width: 768px) {
     .container {
         padding: 15px;
@@ -318,5 +384,11 @@ body {
     
     .preset-item {
         padding: 15px;
+    }
+    
+    .connection-status {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
     }
 }
