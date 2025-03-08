@@ -34,6 +34,12 @@
                     <input type="password" id="password" name="password" minlength="1" required>
                     <span class="error-message" id="passwordError"></span>
                 </div>
+
+                <div class="form-group">
+                    <label for="timeout">Timeout (seconds):</label>
+                    <input type="number" id="timeout" name="timeout" min="10" max="300" value="30" required>
+                    <span class="timeout-info">Range: 10-300 seconds</span>
+                </div>
             </div>
 
             <div class="form-group command-group">
@@ -70,9 +76,10 @@
     </div>
 
     <script>
-        // Session Management
+        // Session and timeout management
         let currentSession = null;
         let isConnected = false;
+        let commandTimeout = null;
 
         function updateConnectionStatus(connected, sessionId = null) {
             isConnected = connected;
@@ -95,6 +102,7 @@
                 disconnectBtn.style.display = 'none';
                 connectionFields.style.display = 'block';
                 submitBtn.textContent = 'Connect & Execute';
+                clearTimeout(commandTimeout);
             }
         }
 
@@ -183,11 +191,17 @@
             updateHistoryDisplay();
         });
 
+        // Timeout handling for command input
+        document.getElementById('command').addEventListener('input', function() {
+            clearTimeout(commandTimeout);
+        });
+
         // Disconnect button handler
         document.getElementById('disconnectBtn').addEventListener('click', function() {
             updateConnectionStatus(false);
             currentSession = null;
             document.getElementById('logContent').textContent = 'Disconnected from server.';
+            clearTimeout(commandTimeout);
         });
 
         function sanitizeInput(input) {
@@ -209,21 +223,25 @@
             return commandRegex.test(command);
         }
 
-        // Form submission
+        // Form submission with timeout handling
         document.getElementById('sshForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            clearTimeout(commandTimeout);
             document.querySelectorAll('.error-message').forEach(el => el.textContent = '');
 
             const command = sanitizeInput(document.getElementById('command').value.trim());
+            const timeout = parseInt(document.getElementById('timeout').value);
             
             if (!validateCommand(command)) {
                 document.getElementById('commandError').textContent = 'Invalid command format';
                 return;
             }
 
-            let requestData = { command };
+            let requestData = { 
+                command,
+                timeout
+            };
 
-            // Add connection details if not already connected
             if (!isConnected) {
                 const host = sanitizeInput(document.getElementById('host').value.trim());
                 const username = sanitizeInput(document.getElementById('username').value.trim());
@@ -263,14 +281,26 @@
                 submitBtn.textContent = isConnected ? 'Executing...' : 'Connecting...';
                 logContent.textContent = isConnected ? 'Executing command...' : 'Connecting to host...';
 
-                const response = await fetch('ajax.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestData)
+                // Set up timeout
+                const timeoutPromise = new Promise((_, reject) => {
+                    commandTimeout = setTimeout(() => {
+                        reject(new Error(`Operation timed out after ${timeout} seconds`));
+                    }, timeout * 1000);
                 });
 
+                // Race between fetch and timeout
+                const response = await Promise.race([
+                    fetch('ajax.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestData)
+                    }),
+                    timeoutPromise
+                ]);
+
+                clearTimeout(commandTimeout);
                 const result = await response.json();
 
                 if (result.success) {
@@ -292,6 +322,7 @@
                     }
                 }
             } catch (error) {
+                clearTimeout(commandTimeout);
                 logContent.textContent = 'Error: ' + error.message;
                 logContent.classList.add('error');
                 updateConnectionStatus(false);

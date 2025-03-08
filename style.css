@@ -67,6 +67,24 @@ body {
     background-color: #c0392b;
 }
 
+/* Timeout input styles */
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.timeout-info {
+    display: block;
+    font-size: 12px;
+    color: #7f8c8d;
+    margin-top: 4px;
+}
+
 .form-group {
     margin-bottom: 15px;
     position: relative;
@@ -330,34 +348,18 @@ body {
     color: #fff;
 }
 
-/* Slide animations */
-@keyframes slideDown {
+/* Animations */
+@keyframes fadeIn {
     from {
-        transform: translateY(-10px);
         opacity: 0;
     }
     to {
-        transform: translateY(0);
         opacity: 1;
     }
 }
 
-.command-history.show,
-.command-presets.show {
-    animation: slideDown 0.2s ease-out;
-}
-
-/* Transition for connection fields */
-#connectionFields {
-    transition: all 0.3s ease-in-out;
-}
-
-#connectionFields.hidden {
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    margin: 0;
-    padding: 0;
+.timeout-info {
+    animation: fadeIn 0.3s ease-out;
 }
 
 @media (max-width: 768px) {
@@ -386,9 +388,7 @@ body {
         padding: 15px;
     }
     
-    .connection-status {
-        flex-direction: column;
-        gap: 10px;
-        text-align: center;
+    .timeout-info {
+        font-size: 14px;
     }
 }
