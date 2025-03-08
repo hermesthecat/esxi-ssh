@@ -1,6 +1,7 @@
 <?php
 session_start();
 header('Content-Type: application/json');
+require_once 'CommandValidator.php';
 
 class SSHConnection
 {
@@ -57,6 +58,12 @@ class SSHConnection
             return ['success' => false, 'message' => 'Not connected'];
         }
 
+        // Validate command
+        $validation = CommandValidator::validate($command);
+        if (!$validation['valid']) {
+            return ['success' => false, 'message' => $validation['message']];
+        }
+
         // Update last used timestamp
         if ($this->sessionId && isset($_SESSION['ssh_connections'][$this->sessionId])) {
             $_SESSION['ssh_connections'][$this->sessionId]['last_used'] = time();
@@ -111,11 +118,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // Validate command before proceeding
+    $validation = CommandValidator::validate($data['command']);
+    if (!$validation['valid']) {
+        echo json_encode(['success' => false, 'message' => $validation['message']]);
+        exit;
+    }
+
     // Check if we have an existing session
     if (isset($data['session_id']) && isset($_SESSION['ssh_connections'][$data['session_id']])) {
         $sessionInfo = $_SESSION['ssh_connections'][$data['session_id']];
         $ssh = new SSHConnection($sessionInfo['host'], $sessionInfo['username'], '');
-        $ssh->connect(); // Reconnect using existing session info
+        $connection = $ssh->connect(); // Reconnect using existing session info
+        
+        if (!$connection['success']) {
+            echo json_encode($connection);
+            exit;
+        }
     } else {
         // New connection
         if (!isset($data['host']) || !isset($data['username']) || !isset($data['password'])) {
