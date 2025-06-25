@@ -54,7 +54,7 @@ class SSHConnection
         ];
 
         return [
-            'success' => true, 
+            'success' => true,
             'message' => 'Connected successfully',
             'session_id' => $this->sessionId
         ];
@@ -172,7 +172,7 @@ SSHConnection::cleanOldSessions();
 // Handle AJAX request
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents('php://input'), true);
-    
+
     // Handle disconnect request
     if (isset($data['action']) && $data['action'] === 'disconnect') {
         if (!isset($data['session_id'])) {
@@ -211,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sessionInfo = $_SESSION['ssh_connections'][$data['session_id']];
         $ssh = new SSHConnection($sessionInfo['host'], $sessionInfo['username'], '', $timeout);
         $connection = $ssh->connect();
-        
+
         if (!$connection['success']) {
             echo json_encode($connection);
             exit;
@@ -224,7 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $ssh = new SSHConnection($data['host'], $data['username'], $data['password'], $timeout);
         $connection = $ssh->connect();
-        
+
         if (!$connection['success']) {
             echo json_encode($connection);
             exit;

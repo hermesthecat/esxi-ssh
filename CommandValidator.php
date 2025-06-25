@@ -1,6 +1,7 @@
 <?php
 
-class CommandValidator {
+class CommandValidator
+{
     private static $allowedCommands = [
         // System Information
         'vmware -v',
@@ -84,7 +85,8 @@ class CommandValidator {
         'killall'
     ];
 
-    public static function validate($command) {
+    public static function validate($command)
+    {
         // Trim whitespace
         $command = trim($command);
 
@@ -163,11 +165,13 @@ class CommandValidator {
         ];
     }
 
-    public static function getAllowedCommands() {
+    public static function getAllowedCommands()
+    {
         return self::$allowedCommands;
     }
 
-    public static function getAllowedPrefixes() {
+    public static function getAllowedPrefixes()
+    {
         return self::$allowedCommandPrefixes;
     }
 }

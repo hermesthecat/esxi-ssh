@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESXi SSH Connection</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="container">
         <form id="sshForm" class="ssh-form">
             <h2>ESXi SSH Connection</h2>
-            
+
             <div class="connection-status" id="connectionStatus">
                 <div class="status-info">
                     <span class="status-text">Not Connected</span>
@@ -104,7 +106,7 @@
         function updateConnectionStatus(connected, sessionId = null, hostInfo = '') {
             isConnected = connected;
             currentSession = sessionId;
-            
+
             const statusText = document.querySelector('.status-text');
             const hostInfoEl = document.getElementById('hostInfo');
             const disconnectBtn = document.getElementById('disconnectBtn');
@@ -150,7 +152,7 @@
                 });
 
                 const result = await response.json();
-                
+
                 if (result.success) {
                     updateConnectionStatus(false);
                     logContent.textContent = 'Disconnected from server.';
@@ -183,7 +185,7 @@
 
         function updateHistoryDisplay() {
             const historyList = document.getElementById('historyList');
-            historyList.innerHTML = commandHistory.map(cmd => 
+            historyList.innerHTML = commandHistory.map(cmd =>
                 `<li><button type="button" class="history-item" onclick="useHistoryCommand('${cmd.replace(/'/g, "\\'")}')">${cmd}</button></li>`
             ).join('');
         }
@@ -208,11 +210,11 @@
 
         function updatePresetsDisplay(searchTerm = '') {
             const presetsList = document.getElementById('presetsList');
-            const filteredPresets = searchTerm 
-                ? presets.filter(preset => 
+            const filteredPresets = searchTerm ?
+                presets.filter(preset =>
                     preset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    preset.description.toLowerCase().includes(searchTerm.toLowerCase()))
-                : presets;
+                    preset.description.toLowerCase().includes(searchTerm.toLowerCase())) :
+                presets;
 
             presetsList.innerHTML = filteredPresets.map(preset => `
                 <div class="preset-item" onclick="usePresetCommand('${preset.command}')">
@@ -230,11 +232,11 @@
 
         // Modal Management
         const modal = document.getElementById('disconnectModal');
-        
+
         function showDisconnectModal() {
             modal.classList.add('show');
         }
-        
+
         function hideDisconnectModal() {
             modal.classList.remove('show');
         }
@@ -276,13 +278,13 @@
 
             const command = sanitizeInput(document.getElementById('command').value.trim());
             const timeout = parseInt(document.getElementById('timeout').value);
-            
+
             if (!validateCommand(command)) {
                 document.getElementById('commandError').textContent = 'Invalid command format';
                 return;
             }
 
-            let requestData = { 
+            let requestData = {
                 command,
                 timeout
             };
@@ -311,7 +313,12 @@
 
                 if (hasError) return;
 
-                requestData = { ...requestData, host, username, password };
+                requestData = {
+                    ...requestData,
+                    host,
+                    username,
+                    password
+                };
             } else {
                 requestData.session_id = currentSession;
             }
@@ -350,7 +357,7 @@
                     if (!isConnected && result.session_id) {
                         updateConnectionStatus(true, result.session_id, `${requestData.host} (${requestData.username})`);
                     }
-                    
+
                     if (result.output) {
                         logContent.textContent = result.output;
                     } else {
@@ -421,4 +428,5 @@
         });
     </script>
 </body>
+
 </html>
