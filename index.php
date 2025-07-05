@@ -183,11 +183,25 @@
             updateHistoryDisplay();
         }
 
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         function updateHistoryDisplay() {
             const historyList = document.getElementById('historyList');
-            historyList.innerHTML = commandHistory.map(cmd =>
-                `<li><button type="button" class="history-item" onclick="useHistoryCommand('${cmd.replace(/'/g, "\\'")}')">${cmd}</button></li>`
-            ).join('');
+            historyList.innerHTML = commandHistory.map(cmd => {
+                const escapedCmd = escapeHtml(cmd);
+                return `<li><button type="button" class="history-item" data-command="${escapedCmd}">${escapedCmd}</button></li>`;
+            }).join('');
+
+            // Add event listeners to prevent XSS
+            document.querySelectorAll('.history-item').forEach(button => {
+                button.addEventListener('click', function() {
+                    useHistoryCommand(this.getAttribute('data-command'));
+                });
+            });
         }
 
         function useHistoryCommand(command) {

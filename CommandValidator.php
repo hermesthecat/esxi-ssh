@@ -127,7 +127,7 @@ class CommandValidator
         }
 
         // Validate command format
-        if (!preg_match('/^[a-zA-Z0-9\s._\-\/]+$/', $command)) {
+        if (!preg_match('/^[a-zA-Z0-9\s._-]+$/', $command)) {
             return [
                 'valid' => false,
                 'message' => 'Command contains invalid characters'

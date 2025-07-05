@@ -42,12 +42,13 @@ class SSHConnection
             return ['success' => false, 'message' => 'Authentication failed or timed out'];
         }
 
-        $this->sessionId = md5(uniqid($this->host . $this->username, true));
+        $this->sessionId = bin2hex(random_bytes(32));
         $this->lastActivity = time();
 
         $_SESSION['ssh_connections'][$this->sessionId] = [
             'host' => $this->host,
             'username' => $this->username,
+            'password' => $this->password,
             'connected_at' => time(),
             'last_used' => time(),
             'timeout' => $this->timeout
@@ -186,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $sessionInfo = $_SESSION['ssh_connections'][$data['session_id']];
-        $ssh = new SSHConnection($sessionInfo['host'], $sessionInfo['username'], '');
+        $ssh = new SSHConnection($sessionInfo['host'], $sessionInfo['username'], $sessionInfo['password']);
         $result = $ssh->disconnect();
         echo json_encode($result);
         exit;
